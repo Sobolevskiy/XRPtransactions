@@ -55,20 +55,26 @@ class Receiver:
         и тасок для их обработки
         """
         logger.info('Start receiver')
-        async with AsyncWebsocketClient(self._settings.XRPL_SOCKET_URL) as xrpl_client:
-            self._initialize_managers(xrpl_client)
+        try:
+            async with AsyncWebsocketClient(self._settings.XRPL_SOCKET_URL) as xrpl_client:
+                self._initialize_managers(xrpl_client)
 
-            asyncio.create_task(self._xrpl_listener(xrpl_client))
-            await self.subscription_manager.start()
-            await self.redis_manager.start()
-            asyncio.create_task(self._redis_listener())
+                asyncio.create_task(self._xrpl_listener(xrpl_client))
+                await self.subscription_manager.start()
+                await self.redis_manager.start()
+                asyncio.create_task(self._redis_listener())
 
-            asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, self.stop)
-            asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.stop)
-            await self._cycle()
+                asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, self.stop)
+                asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.stop)
+                await self._cycle()
 
-            await self.subscription_manager.stop()
-            await self.redis_manager.stop()
+                await self._uninitialize_managers()
+        except Exception as e:
+            logger.error(f'Error while receiver running: {e}')
+            await self._uninitialize_managers()
+            await xrpl_client.close()
+
+            raise e
 
         logger.info('Stop receiver')
 
@@ -84,3 +90,7 @@ class Receiver:
         self.subscription_manager = SubscriptionManager(client=client, service_url=self._settings.WEB_SERVICE_URL)
         self.redis_manager = RedisManager(host=self._settings.REDIS['URL'], port=self._settings.REDIS['PORT'],
                                           queue_in=self._settings.QUEUE_IN, queue_out=self._settings.QUEUE_OUT)
+
+    async def _uninitialize_managers(self):
+        await self.subscription_manager.stop()
+        await self.redis_manager.stop()
