@@ -30,7 +30,7 @@ class Receiver:
             if message.get('type') == 'transaction' and message.get('engine_result') == 'tesSUCCESS':
                 # Отправить сообщение на создание транзакции
                 logger.info(f'Get payment from XRPL: {message}')
-                await self.redis_manager.send(message['transaction'])
+                asyncio.create_task(self.redis_manager.send(message['transaction']))
             elif message.get('type') == 'responce':
                 # TODO: добавить переподписку при дисконнекте
                 logger.info(f'Get responce from XRPL: {message}')
@@ -39,9 +39,9 @@ class Receiver:
         """Слушает сообщения от Редиса, на данный момент используется для подписывания на новые аккаунты"""
         async for message in self.redis_manager:
             if message.get('add'):
-                await self.subscription_manager.subscribe(message['add'])
+                asyncio.create_task(self.subscription_manager.subscribe(message['add']))
             elif message.get('delete'):
-                await self.subscription_manager.unsubscribe(message['delete'])
+                asyncio.create_task(self.subscription_manager.unsubscribe(message['delete']))
             else:
                 logger.error(f'Unsupported message type: {message}')
 
