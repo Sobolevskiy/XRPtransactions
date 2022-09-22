@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from service import models
+from service import models, tasks
 
 
 @admin.register(models.Transactions)
@@ -14,3 +14,10 @@ class TransactionsAdmin(admin.ModelAdmin):
 class AccountAddressAdmin(admin.ModelAdmin):
     search_fields = ('address',)
     list_display = ('address',)
+    actions = ['actualize_accounts']
+
+    def actualize_accounts(self, request, queryset):
+        for account in queryset:
+            tasks.actualize_account.apply_async(args=[account.address])
+
+    actualize_accounts.short_description = 'Получить все транзакции'
