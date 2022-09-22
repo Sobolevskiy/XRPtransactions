@@ -1,12 +1,17 @@
 import logging
-from aiohttp import ClientSession, TCPConnector
+from aiohttp import ClientSession
+from aiohttp.http_exceptions import HttpProcessingError
+from aiohttp.client_exceptions import ClientError
 
 from xrpl.models import Subscribe, Unsubscribe
+from aioretry import retry
 
 logger = logging.getLogger('xrpl_client')
 
 
 class SubscriptionManager:
+    RETRYS = 3
+
     def __init__(self, client, service_url):
         self.client = client
         self.service_url = service_url
@@ -54,6 +59,7 @@ class SubscriptionManager:
                 accounts=account,
             ))
 
+    @retry('_retry_policy')
     async def _get_all_accounts(self):
         """Обращение к джанго сервису для получения аккаунтов, по которым надо получать данные"""
         async with ClientSession(trust_env=True) as session:
@@ -66,3 +72,10 @@ class SubscriptionManager:
     def _get_unsub_accs(self, accounts):
         """Получение списка аккаунтов, которых ещё нет в подписках"""
         return list(filter(lambda i: i not in self.subscriptions, accounts))
+
+    def _retry_policy(self, info):
+        logger.error(f"Retry subscription manager function with error: {info.exception}")
+        if not isinstance(info.exception, (HttpProcessingError, ClientError)):
+            return True, 0
+
+        return info.fails > self.RETRYS, info.fails * 0.1

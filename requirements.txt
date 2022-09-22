@@ -6,3 +6,4 @@ redis==4.3.4
 aiohttp==3.8.1
 django-filter==22.1
 celery==5.2.7
+aioretry==5.0.2

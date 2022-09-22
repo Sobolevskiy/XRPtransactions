@@ -2,7 +2,9 @@ import asyncio
 import logging
 import json
 
-import redis
+from redis import Redis
+from redis.exceptions import RedisError
+from aioretry import retry
 
 logger = logging.getLogger('redis')
 
@@ -13,7 +15,7 @@ class RedisManager:
 
     def __init__(self, host, port, queue_in, queue_out):
         self.is_open = False
-        self.client = redis.Redis(host, port=port)
+        self.client = Redis(host, port=port)
         self.queue_in = queue_in
         self.queue_out = queue_out
 
@@ -24,10 +26,11 @@ class RedisManager:
         self.is_open = False
         self.client.close()
 
+    @retry('_retry_policy')
     async def send(self, message):
         if not isinstance(message, (str, int, float, bool)):
             message = json.dumps(message)
-        self.client.rpush(self.queue_out, message)
+        await self.client.rpush(self.queue_out, message)
         logger.info(f'Send message to redis: {message}')
 
     async def __aiter__(self):
@@ -44,7 +47,7 @@ class RedisManager:
         """Преобразует формат редиса к dict"""
         try:
             message = json.loads(message)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             message.decode(self.ENCODING)
 
         if not isinstance(message, dict):
@@ -53,3 +56,10 @@ class RedisManager:
 
     async def _pop_message(self):
         return self.client.rpop(self.queue_in)
+
+    def _retry_policy(self, info):
+        logger.error(f"Retry redis function with error: {info.exception}")
+        if not isinstance(info.exception, (RedisError,)):
+            return True, 0
+
+        return False, info.fails * 0.1
