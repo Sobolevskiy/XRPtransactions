@@ -1,6 +1,8 @@
 import pytest
+import redis
 from mixer.backend.django import mixer
 from rest_framework.test import APIClient
+from django.conf import settings
 
 from service import models
 
@@ -10,6 +12,11 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def api_client():
     return APIClient
+
+
+@pytest.fixture
+def redis_client():
+    return redis.Redis(settings.REDIS['HOST'], port=settings.REDIS['PORT'])
 
 
 @pytest.fixture

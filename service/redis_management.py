@@ -11,7 +11,7 @@ logger = logging.getLogger('default')
 def send_message(message):
     with redis.Redis(settings.REDIS['HOST'], port=settings.REDIS['PORT']) as client:
         message = json.dumps(message)
-        client.rpush('accounts', message)
+        client.rpush(settings.REDIS['OUT_QUEUE'], message)
 
 
 class RedisWorker:

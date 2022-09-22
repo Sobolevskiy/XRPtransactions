@@ -17,7 +17,7 @@ class Command(BaseCommand):
         logger.info('Starting redis consumer')
         try:
             with redis.Redis(settings.REDIS['HOST'], port=settings.REDIS['PORT']) as redis_cli:
-                for message in RedisWorker(redis_cli, 'payments'):
+                for message in RedisWorker(redis_cli, settings.REDIS['IN_QUEUE']):
                     logger.info(f'Receive message from Redis: {message}')
                     tasks.process_payment.apply_async(args=[message])
         except Exception as e:

@@ -149,4 +149,6 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", 'redis://queue:6379')
 REDIS = {
     "HOST": "queue",
     "PORT": 6379,
+    "IN_QUEUE": "payments",
+    "OUT_QUEUE": "accounts",
 }
