@@ -5,3 +5,6 @@ WORKDIR /code
 COPY requirements.txt /code/
 RUN pip cache remove * && pip install --no-cache-dir -r requirements.txt
 COPY . /code/
+RUN chgrp -R 0 /code && chmod -R g=u /code
+RUN ["chmod", "+x", "/code/docker-entrypoint.sh"]
+ENTRYPOINT ["/code/docker-entrypoint.sh"]

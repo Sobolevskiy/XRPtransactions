@@ -15,7 +15,7 @@ services:
   web:
     build: .
     restart: always
-    command: python manage.py runserver 0.0.0.0:8080
+    command: ["web"]
     volumes:
       - .:/code
     ports:
@@ -33,19 +33,17 @@ services:
   receiver:
     build: ./
     restart: always
-    command: python3 -m receiver
+    command: ["receiver"]
     volumes:
       - ./:/code
     depends_on:
       - web
       - queue
 
-# TODO: add var.env with params
-# TODO: add tests
   redis_consumer:
     build: ./
     restart: always
-    command: python3 manage.py run_redis_consumer
+    command: ["redis_consumer"]
     depends_on:
       - queue
       - db
@@ -55,7 +53,7 @@ services:
   celery:
     build: .
     restart: always
-    command: celery -A XRPtransactions worker -l INFO
+    command: ["celery"]
     volumes:
       - ./:/code
     depends_on:
