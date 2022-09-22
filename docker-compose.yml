@@ -1,0 +1,77 @@
+version: "3.9"
+
+services:
+  db:
+    restart: always
+    image: postgres
+    volumes:
+      - pgstore:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+  web:
+    build: .
+    restart: always
+    command: python manage.py runserver 0.0.0.0:8080
+    volumes:
+      - .:/code
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTGRES_NAME=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    links:
+      - queue
+    depends_on:
+      - db
+      - queue
+
+  receiver:
+    build: ./
+    restart: always
+    command: python3 -m receiver
+    volumes:
+      - ./:/code
+    depends_on:
+      - web
+      - queue
+
+# TODO: add var.env with params
+# TODO: add tests
+  redis_consumer:
+    build: ./
+    restart: always
+    command: python3 manage.py run_redis_consumer
+    depends_on:
+      - queue
+      - db
+    volumes:
+      - ./:/code
+
+  celery:
+    build: .
+    restart: always
+    command: celery -A XRPtransactions worker -l INFO
+    volumes:
+      - ./:/code
+    depends_on:
+      - web
+      - queue
+#
+  queue:
+    image: redis:6.2-alpine
+    restart: always
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - '6378:6379'
+    volumes:
+      - redisqueue:/data
+
+volumes:
+  pgstore:
+  redisqueue:
