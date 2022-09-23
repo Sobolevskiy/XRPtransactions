@@ -16,7 +16,7 @@ class SubscriptionManager:
         self.client = client
         self.service_url = service_url
 
-        self.subscriptions = list()
+        self.subscriptions = dict()
 
     async def start(self):
         """
@@ -30,7 +30,7 @@ class SubscriptionManager:
 
     async def stop(self):
         logger.info('Stop listen XRPL')
-        await self.unsubscribe(self.subscriptions)
+        await self.unsubscribe(list(self.subscriptions.keys()))
 
     async def subscribe(self, account):
         """Подписка на указанные аккаунты"""
@@ -40,14 +40,9 @@ class SubscriptionManager:
         account = self._get_unsub_accs(account)
         if not account:
             return
-        await self.client.send(Subscribe(
-            accounts=account
-        ))
+        await self._send_sub_message(account)
 
-        if isinstance(account, list):
-            self.subscriptions.extend(account)
-        else:
-            self.subscriptions.append(account)
+        self._add_accounts_to_subscriptoins(account)
 
     async def unsubscribe(self, account):
         """Отписка от аккаунтов, которые удалены"""
@@ -55,9 +50,8 @@ class SubscriptionManager:
         if not isinstance(account, list):
             account = [account]
         if not self._get_unsub_accs(account):
-            await self.client.send(Unsubscribe(
-                accounts=account,
-            ))
+            await self._send_unsub_message(account)
+            self._remove_accounts_from_subscriptions(account)
 
     @retry('_retry_policy')
     async def _get_all_accounts(self):
@@ -69,9 +63,27 @@ class SubscriptionManager:
 
         return [acc['address'] for acc in responce_data]
 
+    def _add_accounts_to_subscriptoins(self, accounts):
+        for account in accounts:
+            self.subscriptions[account] = True
+
+    def _remove_accounts_from_subscriptions(self, accounts):
+        for account in accounts:
+            del self.subscriptions[account]
+
+    async def _send_sub_message(self, accounts):
+        await self.client.send(Subscribe(
+            accounts=accounts
+        ))
+
+    async def _send_unsub_message(self, accounts):
+        await self.client.send(Unsubscribe(
+            accounts=accounts,
+        ))
+
     def _get_unsub_accs(self, accounts):
         """Получение списка аккаунтов, которых ещё нет в подписках"""
-        return list(filter(lambda i: i not in self.subscriptions, accounts))
+        return list(filter(lambda i: i not in list(self.subscriptions.keys()), accounts))
 
     def _retry_policy(self, info):
         logger.error(f"Retry subscription manager function with error: {info.exception}")
